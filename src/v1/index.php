@@ -9,12 +9,6 @@
  */
 
 
-// if ( ! is_user_agent_ok( $_SERVER['HTTP_USER_AGENT'] ) ) {
-// 	header("HTTP/1.0 404 Not Found");
-// 	return;
-// }
-// $ip = $_SERVER['REMOTE_ADDR'];
-
 $lat = 0;
 $lot = 0;
 
