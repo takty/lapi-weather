@@ -17,9 +17,8 @@
   },
   "homepage": "https://github.com/takty/lapi-weather#readme",
   "dependencies": {
-    "gulp": "^4.0.2",
-    "gulp-changed": "^4.0.3",
-    "gulp-load-plugins": "^2.0.8",
+    "gulp": "^5.0.1",
+    "gulp-changed": "^5.0.4",
     "gulp-plumber": "^1.2.1"
   }
 }

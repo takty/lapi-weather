@@ -1,13 +1,10 @@
-/* eslint-disable no-undef */
-'use strict';
-
-const gulp = require('gulp');
-const $ = require('gulp-load-plugins')({ pattern: ['gulp-*'] });
-
+import gulp from 'gulp';
+import plumber from 'gulp-plumber';
+import changed, { compareContents } from 'gulp-changed';
 
 gulp.task('php', () => gulp.src(['src/**/*.php'])
-	.pipe($.plumber())
-	.pipe($.changed('./dist'))
+	.pipe(plumber())
+	.pipe(changed('./dist', { hasChanged: compareContents }))
 	.pipe(gulp.dest('./dist'))
 );
 
