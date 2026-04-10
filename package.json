@@ -20,5 +20,6 @@
     "gulp": "^5.0.1",
     "gulp-changed": "^5.0.4",
     "gulp-plumber": "^1.2.1"
-  }
+  },
+  "packageManager": "yarn@4.13.0"
 }
