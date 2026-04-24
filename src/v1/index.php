@@ -4,10 +4,11 @@
  * Weather API
  *
  * @author Takuto Yanagida
- * @version 2020-04-28
+ * @version 2026-04-24
  *
  */
 
+const OWNER = 'takty';
 
 $lat = 0;
 $lot = 0;
@@ -80,7 +81,7 @@ function write_cache( $lat, $lon, $w ) {
 		$s = mkdir( $dir, 0775, true );
 		if ( $s ) {
 			chmod( $dir, 0775 );
-			chown( $dir, 'laccolla' );
+			chown( $dir, OWNER );
 		}
 	}
 	if ( ! file_exists( $dir ) ) return false;
@@ -90,7 +91,7 @@ function write_cache( $lat, $lon, $w ) {
 	$fn = "$lat,$lon,$ns";
 	$path = $dir . '/' . $fn;
 	file_put_contents( $path, json_encode( $w ), LOCK_EX );
-	chown( $path, 'laccolla' );
+	chown( $path, OWNER );
 }
 
 
