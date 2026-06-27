@@ -36,29 +36,35 @@ if ($is_allowed_hosts) {
 
 
 $api_key = getenv('API_KEY');
-
-$lat = 0;
-$lot = 0;
-
-if (
-	isset($_GET['lat']) && !preg_match('/[^0-9\.]/', $_GET['lat']) &&
-	isset($_GET['lon']) && !preg_match('/[^0-9\.]/', $_GET['lon'])
-) {
-	$lat = round(floatval($_GET['lat']));
-	$lon = round(floatval($_GET['lon']));
-} else {
-	http_response_code(403);
+if ($api_key === false || $api_key === '') {
+	http_response_code(500);
 	header('Content-Type: application/json; charset=UTF-8');
-	echo json_encode(['status' => 'no']);
+	echo json_encode(null);
 	return;
 }
 
+$lat = filter_input(INPUT_GET, 'lat', FILTER_VALIDATE_FLOAT);
+$lon = filter_input(INPUT_GET, 'lon', FILTER_VALIDATE_FLOAT);
+
+if (
+	$lat === false || $lat === null || $lon === false || $lon === null ||
+	$lat < -90 || 90 < $lat || $lon < -180 || 180 < $lon
+) {
+	http_response_code(403);
+	header('Content-Type: application/json; charset=UTF-8');
+	echo json_encode(null);
+	return;
+}
+
+$lat_c = (int)round($lat * 10);
+$lon_c = (int)round($lon * 10);
+
 clean_cache();
-$w = read_cache($lat, $lon);
+$w = read_cache($lat_c, $lon_c);
 if ($w === null) {
 	$w = get_weather($api_key, $lat, $lon);
 	if ($w !== null) {
-		write_cache($lat, $lon, $w);
+		write_cache($lat_c, $lon_c, $w);
 	}
 }
 
@@ -72,37 +78,43 @@ echo json_encode($w);
 // -----------------------------------------------------------------------------
 
 
-function clean_cache() {
+function clean_cache(): void {
 	$dir = __DIR__ . '/cache/';
 	if (!file_exists($dir)) return;
 
 	$now = new DateTime('now');
 	$ps  = scandir($dir);
+	if ($ps === false) return;
 
 	foreach ($ps as $p) {
 		if ($p[0] === '.') continue;
-		$ps = explode(',', $p);
+		$es = explode(',', $p);
 
-		if (count($ps) === 3) {
-			$d    = preg_replace('/(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})/', '${1}-${2}-${3} ${4}:${5}:00', $ps[2]);
-			$date = new DateTime($d);
+		if (count($es) === 3 && preg_match('/^\d{12}$/', $es[2])) {
+			$date = DateTime::createFromFormat('!YmdHi', $es[2]);
+			if ($date === false) continue;
+
 			$diff = $date->diff($now);
-			if ($diff->days === 0 && $diff->h === 0 && $diff->i < 30) continue;
+			if ($diff->days === 0 && $diff->h === 0 && $diff->i < 30) {
+				continue;
+			}
 		}
 		unlink( $dir . $p );
 	}
 }
 
-function read_cache(float $lat, float $lon): ?array {
+function read_cache(int $lat, int $lon): ?array {
 	$dir = __DIR__ . '/cache/';
 	if (!file_exists($dir)) return null;
 
 	$ps = scandir($dir, SCANDIR_SORT_DESCENDING);
+	if ($ps === false) return null;
+
 	foreach ($ps as $p) {
 		if ($p[0] === '.') continue;
-		$ps = explode(',', $p);
+		$es = explode(',', $p);
 
-		if (count($ps) === 3 && $ps[0] == $lat && $ps[1] == $lon) {
+		if (count($es) === 3 && $es[0] == $lat && $es[1] == $lon) {
 			$c = file_get_contents($dir . $p);
 			return json_decode($c, true);
 		}
@@ -110,7 +122,7 @@ function read_cache(float $lat, float $lon): ?array {
 	return null;
 }
 
-function write_cache(float $lat, float $lon, array $w) {
+function write_cache(int $lat, int $lon, array $w): void {
 	$dir = __DIR__ . '/cache/';
 
 	if (!file_exists($dir)) {
@@ -120,7 +132,7 @@ function write_cache(float $lat, float $lon, array $w) {
 			chown($dir, OWNER);
 		}
 	}
-	if (!file_exists($dir)) return false;
+	if (!file_exists($dir)) return;
 
 	$now  = new DateTime('now');
 	$ns   = $now->format('YmdHi');
