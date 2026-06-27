@@ -4,7 +4,7 @@
  * Weather API
  *
  * @author Takuto Yanagida
- * @version 2026-06-27
+ * @version 2026-06-28
  *
  */
 
@@ -79,65 +79,57 @@ echo json_encode($w);
 
 
 function clean_cache(): void {
-	$dir = __DIR__ . '/cache/';
-	if (!file_exists($dir)) return;
+	$base = __DIR__ . '/cache/';
+	if (!is_dir($base)) return;
 
-	$now = new DateTime('now');
-	$ps  = scandir($dir);
+	$ps  = scandir($base);
 	if ($ps === false) return;
+
+	$now = time();
 
 	foreach ($ps as $p) {
 		if ($p[0] === '.') continue;
-		$es = explode(',', $p);
 
-		if (count($es) === 3 && preg_match('/^\d{12}$/', $es[2])) {
-			$date = DateTime::createFromFormat('!YmdHi', $es[2]);
-			if ($date === false) continue;
+		$path = $base . $p;
+		if (!is_file($path)) continue;
 
-			$diff = $date->diff($now);
-			if ($diff->days === 0 && $diff->h === 0 && $diff->i < 30) {
-				continue;
-			}
+		$time = filemtime($path);
+		if ($time === false) continue;
+
+		if (30 * 60 < $now - $time) {
+			unlink($path);
 		}
-		unlink( $dir . $p );
 	}
 }
 
 function read_cache(int $lat, int $lon): ?array {
-	$dir = __DIR__ . '/cache/';
-	if (!file_exists($dir)) return null;
+	$path = __DIR__ . "/cache/$lat,$lon";
+	if (!file_exists($path)) return null;
 
-	$ps = scandir($dir, SCANDIR_SORT_DESCENDING);
-	if ($ps === false) return null;
+	$time = filemtime($path);
+	if ($time === false) return null;
+	if (30 * 60 < time() - $time) return null;
 
-	foreach ($ps as $p) {
-		if ($p[0] === '.') continue;
-		$es = explode(',', $p);
+	$c = file_get_contents($path);
+	if ($c === false) return null;
 
-		if (count($es) === 3 && $es[0] == $lat && $es[1] == $lon) {
-			$c = file_get_contents($dir . $p);
-			return json_decode($c, true);
-		}
-	}
-	return null;
+	return json_decode($c, true);
 }
 
 function write_cache(int $lat, int $lon, array $w): void {
-	$dir = __DIR__ . '/cache/';
+	$base = __DIR__ . '/cache/';
 
-	if (!file_exists($dir)) {
-		$s = mkdir($dir, 0775, true);
+	if (!is_dir($base)) {
+		$s = mkdir($base, 0775, true);
 		if ($s) {
-			chmod($dir, 0775);
-			chown($dir, OWNER);
+			chmod($base, 0775);
+			chown($base, OWNER);
 		}
 	}
-	if (!file_exists($dir)) return;
+	if (!file_exists($base)) return;
 
-	$now  = new DateTime('now');
-	$ns   = $now->format('YmdHi');
-	$fn   = "$lat,$lon,$ns";
-	$path = $dir . '/' . $fn;
+	$fn   = "$lat,$lon";
+	$path = $base . $fn;
 	file_put_contents($path, json_encode($w), LOCK_EX);
 	chown($path, OWNER);
 }
@@ -155,6 +147,22 @@ function get_weather(string $api_key, float $lat, float $lon): ?array {
 	$raw = json_decode($cont, true);
 	if ($raw === null) return null;
 
+	if (
+		!isset($raw['main'], $raw['wind'], $raw['clouds'], $raw['sys']) ||
+		!isset(
+			$raw['main']['temp'],
+			$raw['main']['pressure'],
+			$raw['main']['humidity'],
+			$raw['wind']['speed'],
+			$raw['wind']['deg'],
+			$raw['clouds']['all'],
+			$raw['sys']['sunrise'],
+			$raw['sys']['sunset'],
+			$raw['timezone']
+		)
+	) {
+		return null;
+	}
 	$res = [];
 	$res['temp']       = $raw['main']['temp'];      // [C deg]
 	$res['pressure']   = $raw['main']['pressure'];  // [hPa]
